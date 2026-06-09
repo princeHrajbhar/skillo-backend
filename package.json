@@ -1,0 +1,29 @@
+{
+  "name": "skillo-backend",
+  "version": "1.0.0",
+  "type": "module",
+"scripts": {
+  "dev": "tsx watch src/server.ts",
+  "build": "tsc",
+  "start": "node dist/server.js",
+  "typecheck": "tsc --noEmit",
+  "format": "prettier --write \"src/**/*.{ts,js,json,md}\"",
+  "lint": "eslint \"src/**/*.ts\"",
+  "prepare": "npm run format && npm run lint && npm run build"
+},
+  "dependencies": {
+    "express": "^5.2.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.9.2",
+    "@typescript-eslint/eslint-plugin": "^8.61.0",
+    "@typescript-eslint/parser": "^8.61.0",
+    "eslint": "^10.4.1",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.3",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
