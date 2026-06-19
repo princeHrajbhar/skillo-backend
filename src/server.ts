@@ -1,7 +1,11 @@
-import { app } from './app.js'; // Note: Always include the .js extension for ESM
+import { app } from "./app.js";
+import { ENV } from "./config/env.js";
+import { connectDB } from "./config/db.js";
 
-const PORT = process.env.PORT || 3000;
+const PORT = ENV.PORT || 5000;
+
+await connectDB();
 
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log("🚀 Server running at http://localhost:" + PORT);
 });
