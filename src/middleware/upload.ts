@@ -5,10 +5,10 @@ const storage = multer.memoryStorage();
 
 const fileFilter = (req: any, file: any, cb: any) => {
   // Allow images and videos
-  if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+  if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/') || file.mimetype.startsWith('pdf/')) {
     cb(null, true);
   } else {
-    cb(new Error('Only image and video files are allowed'), false);
+    cb(new Error('Only image,pdf and video files are allowed'), false);
   }
 };
 
