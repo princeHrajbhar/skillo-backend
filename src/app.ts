@@ -1,22 +1,28 @@
-import express, { Application, Request, Response } from "express";
-import cors from "cors";
+import express, { Application, Request, Response } from 'express';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import programRoutes from './modules/programs/program.routes.js';
+import uploadRoutes from './modules/test/upload.routes.js';
+import fileRoutes from './modules/file-upload/file.routes.js';
+import blogRoutes from './modules/blog/blog.route.js';
+import { globalErrorHandler } from './middlewares/errorMiddleware.js';
+import authRoutes from "./modules/auth/auth.route.js";
 
-import programRoutes from "./modules/programs/program.routes.js";
-import uploadRoutes from "./modules/test/upload.routes.js";
-import fileRoutes from "./modules/file-upload/file.routes.js";
-import blogRoutes from "./modules/blog/blog.route.js";
 
-export const app: Application = express();
 
-/**
- * CORS
- */
+const app: Application = express();
+
+// ✅ ONLY ONE CORS (correct one)
 app.use(
   cors({
-    origin: true,
+    origin: 'http://localhost:3000',
     credentials: true,
-  })
+  }),
 );
+
+app.use(cookieParser()); // ✅ MUST ADD
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 /**
  * Body Parsers
@@ -27,18 +33,19 @@ app.use(express.urlencoded({ extended: true }));
 /**
  * Routes
  */
-app.use("/api/v1/programs", programRoutes);
-app.use("/api", uploadRoutes);
-app.use("/api/files", fileRoutes);
-app.use("/api/v1/blogs", blogRoutes);
+app.use('/api/v1/auth', authRoutes)
+app.use('/api/v1/programs', programRoutes);
+app.use('/api', uploadRoutes);
+app.use('/api/files', fileRoutes);
+app.use('/api/v1/blogs', blogRoutes);
 
 /**
  * Health Check
  */
-app.get("/", (_req: Request, res: Response) => {
+app.get('/', (_req: Request, res: Response) => {
   res.status(200).json({
     success: true,
-    message: "Skillo Backend is operational",
+    message: 'Skillo Backend is operational',
   });
 });
 
@@ -52,3 +59,7 @@ app.use((req: Request, res: Response) => {
     message: `Route not found: ${req.originalUrl}`,
   });
 });
+
+app.use(globalErrorHandler);
+
+export default app;

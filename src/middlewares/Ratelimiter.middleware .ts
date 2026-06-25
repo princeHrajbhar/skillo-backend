@@ -1,13 +1,13 @@
-import rateLimit from "express-rate-limit";
-import { Request, Response } from "express";
+import rateLimit from 'express-rate-limit';
+import { Request, Response } from 'express';
 
 // ─── Common response formatter ────────────────────────────────────────────────
 
 const rateLimitHandler = (req: Request, res: Response) => {
   res.status(429).json({
-    status: "fail",
-    code: "RATE_LIMIT_EXCEEDED",
-    message: "Too many requests. Please try again later.",
+    status: 'fail',
+    code: 'RATE_LIMIT_EXCEEDED',
+    message: 'Too many requests. Please try again later.',
   });
 };
 

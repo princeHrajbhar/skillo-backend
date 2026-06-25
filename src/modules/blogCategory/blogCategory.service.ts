@@ -1,18 +1,13 @@
-import BlogCategoryModel from "./blogCategory.model.js";
+import BlogCategoryModel from './blogCategory.model.js';
 
 export class BlogCategoryService {
   async create(data: any) {
     const exists = await BlogCategoryModel.findOne({
-      $or: [
-        { name: data.name },
-        { slug: data.slug },
-      ],
+      $or: [{ name: data.name }, { slug: data.slug }],
     });
 
     if (exists) {
-      throw new Error(
-        "Category name or slug already exists"
-      );
+      throw new Error('Category name or slug already exists');
     }
 
     return BlogCategoryModel.create(data);
@@ -33,29 +28,23 @@ export class BlogCategoryService {
   }
 
   async update(id: string, data: any) {
-    const category =
-      await BlogCategoryModel.findByIdAndUpdate(
-        id,
-        data,
-        {
-          new: true,
-          runValidators: true,
-        }
-      );
+    const category = await BlogCategoryModel.findByIdAndUpdate(id, data, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!category) {
-      throw new Error("Category not found");
+      throw new Error('Category not found');
     }
 
     return category;
   }
 
   async delete(id: string) {
-    const category =
-      await BlogCategoryModel.findById(id);
+    const category = await BlogCategoryModel.findById(id);
 
     if (!category) {
-      throw new Error("Category not found");
+      throw new Error('Category not found');
     }
 
     await category.deleteOne();
@@ -64,5 +53,4 @@ export class BlogCategoryService {
   }
 }
 
-export const blogCategoryService =
-  new BlogCategoryService();
+export const blogCategoryService = new BlogCategoryService();

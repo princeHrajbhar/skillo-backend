@@ -1,13 +1,9 @@
 // program.model.ts
-import mongoose, { Schema, model } from "mongoose";
-import { IProgram } from "./program.type.js";
+import mongoose, { Schema, model } from 'mongoose';
+import { IProgram } from './program.type.js';
 
-const sanitizeStringArray = (
-  value: string[]
-): string[] => {
-  return Array.isArray(value)
-    ? value.map((item) => item.trim()).filter(Boolean)
-    : [];
+const sanitizeStringArray = (value: string[]): string[] => {
+  return Array.isArray(value) ? value.map((item) => item.trim()).filter(Boolean) : [];
 };
 
 const CloudinaryFileSchema = new Schema(
@@ -15,15 +11,15 @@ const CloudinaryFileSchema = new Schema(
     url: { type: String, required: true, trim: true },
     publicId: { type: String, required: true, trim: true },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const LessonSchema = new Schema(
   {
     title: { type: String, required: true, trim: true },
-    duration: { type: String, default: "", trim: true },
+    duration: { type: String, default: '', trim: true },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const ModuleSchema = new Schema(
@@ -31,16 +27,16 @@ const ModuleSchema = new Schema(
     title: { type: String, required: true, trim: true },
     lessons: { type: [LessonSchema], default: [] },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const InstructorSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
     image: { type: CloudinaryFileSchema },
-    bio: { type: String, default: "", trim: true },
+    bio: { type: String, default: '', trim: true },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const ProgramSchema = new Schema<IProgram>(
@@ -56,7 +52,7 @@ const ProgramSchema = new Schema<IProgram>(
       index: true,
     },
     category: { type: String, required: true, trim: true },
-    subCategory: { type: String, trim: true, default: "" },
+    subCategory: { type: String, trim: true, default: '' },
     shortDescription: { type: String, required: true, trim: true },
     fullDescription: { type: String, required: true, trim: true },
 
@@ -64,14 +60,14 @@ const ProgramSchema = new Schema<IProgram>(
     duration: { type: String, required: true, trim: true },
     level: {
       type: String,
-      enum: ["Beginner", "Intermediate", "Advanced"],
+      enum: ['Beginner', 'Intermediate', 'Advanced'],
       required: true,
     },
-    language: { type: String, default: "English", trim: true },
+    language: { type: String, default: 'English', trim: true },
     mode: {
       type: String,
-      enum: ["Online", "Offline", "Hybrid"],
-      default: "Online",
+      enum: ['Online', 'Offline', 'Hybrid'],
+      default: 'Online',
     },
     certification: { type: Boolean, default: true },
 
@@ -85,10 +81,10 @@ const ProgramSchema = new Schema<IProgram>(
         validator(value: number) {
           return value <= this.price;
         },
-        message: "Discounted price cannot exceed price",
+        message: 'Discounted price cannot exceed price',
       },
     },
-    currency: { type: String, default: "INR", trim: true, uppercase: true },
+    currency: { type: String, default: 'INR', trim: true, uppercase: true },
 
     // Media
     thumbnail: { type: CloudinaryFileSchema },
@@ -107,7 +103,7 @@ const ProgramSchema = new Schema<IProgram>(
 
     // Career
     careerOpportunities: { type: [String], default: [], set: sanitizeStringArray },
-    averageSalaryRange: { type: String, default: "", trim: true },
+    averageSalaryRange: { type: String, default: '', trim: true },
 
     // Instructor
     instructor: { type: InstructorSchema, required: true },
@@ -118,8 +114,8 @@ const ProgramSchema = new Schema<IProgram>(
     jobAssistance: { type: Boolean, default: false },
 
     // SEO
-    metaTitle: { type: String, default: "", trim: true },
-    metaDescription: { type: String, default: "", trim: true },
+    metaTitle: { type: String, default: '', trim: true },
+    metaDescription: { type: String, default: '', trim: true },
     keywords: { type: [String], default: [], set: sanitizeStringArray },
 
     // Statistics
@@ -136,14 +132,13 @@ const ProgramSchema = new Schema<IProgram>(
     versionKey: false,
     strict: true,
     minimize: false,
-  }
+  },
 );
 
-ProgramSchema.index({ title: "text", shortDescription: "text" });
+ProgramSchema.index({ title: 'text', shortDescription: 'text' });
 ProgramSchema.index({ category: 1, active: 1 });
 ProgramSchema.index({ featured: 1, active: 1 });
 
-const Program =
-  mongoose.models.Program || model<IProgram>("Program", ProgramSchema);
+const Program = mongoose.models.Program || model<IProgram>('Program', ProgramSchema);
 
 export default Program;

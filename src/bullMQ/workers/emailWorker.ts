@@ -1,9 +1,9 @@
-import { Worker, Job } from "bullmq";
-import { redisConnection } from "../config/redis.js";
-import { transporter } from "../config/mailer.js";
+import { Worker, Job } from 'bullmq';
+import { redisConnection } from '../config/redis.js';
+import { transporter } from '../config/mailer.js';
 
 const worker = new Worker(
-  "email-tasks",
+  'email-tasks',
   async (job: Job) => {
     const { to, subject, html } = job.data;
 
@@ -18,14 +18,14 @@ const worker = new Worker(
 
     return { success: true };
   },
-  { connection: redisConnection }
+  { connection: redisConnection },
 );
 
-worker.on("completed", (job) => {
+worker.on('completed', (job) => {
   console.log(`✅ Email sent (job ${job.id})`);
 });
 
-worker.on("failed", (job, err) => {
+worker.on('failed', (job, err) => {
   console.error(`❌ Job ${job?.id} failed: ${err.message}`);
 });
 

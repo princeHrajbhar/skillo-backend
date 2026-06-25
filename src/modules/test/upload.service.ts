@@ -1,14 +1,10 @@
-import cloudinary from "../../config/cloudinary.config.js";
+import cloudinary from '../../config/cloudinary.config.js';
 
-export const uploadImage = async (
-  file: Express.Multer.File
-) => {
-  const base64 = `data:${file.mimetype};base64,${file.buffer.toString(
-    "base64"
-  )}`;
+export const uploadImage = async (file: Express.Multer.File) => {
+  const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 
   const result = await cloudinary.uploader.upload(base64, {
-    folder: "test",
+    folder: 'test',
   });
 
   return {

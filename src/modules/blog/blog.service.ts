@@ -1,190 +1,218 @@
-import BlogPageModel from "./blog.model.js";
-import { uploadFile } from "../../utils/cloudinaryUpload.js";
-import {  deleteFile } from "../../utils/cloudinaryDelete.js";
+// recorded-course\skillo-backend\src\modules\blog\blog.service.ts
+import Blog, { IBlog, BlogStatus, ICloudinaryFile } from "./blog.model.js";
+import { CreateBlogInput, UpdateBlogInput } from "./blog.validator.js";
+import { uploadFile, uploadMultipleFiles, deleteFile } from "../../utils/fileUpload.js";
 
-export class BlogService {
+class BlogService {
   async createBlog(
-    payload: any,
-    files?: {
-      banner?: Express.Multer.File[];
-      brochurePdf?: Express.Multer.File[];
+    data: CreateBlogInput,
+    bannerFile?: Express.Multer.File,
+    resourceFiles?: Express.Multer.File[]
+  ): Promise<IBlog> {
+    if (data.slug) {
+      const existingBlog = await Blog.findOne({ slug: data.slug });
+      if (existingBlog) {
+        throw new Error("Slug already exists. Please use a unique slug.");
+      }
     }
-  ) {
-    let banner;
-    let brochurePdf;
 
-    try {
-      if (!files?.banner?.[0]) {
-        throw new Error("Banner is required");
-      }
+    let banner: ICloudinaryFile | undefined;
+    let uploadedFiles: ICloudinaryFile[] = [];
 
-      banner = await uploadFile(files.banner[0], "blogs/banner");
-
-      if (files?.brochurePdf?.[0]) {
-        brochurePdf = await uploadFile(
-          files.brochurePdf[0],
-          "blogs/brochure"
-        );
-      }
-
-      const blog = await BlogPageModel.create({
-        ...payload,
-
-        banner: {
-          public_id: banner.publicId,
-          secure_url: banner.url,
-        },
-
-        brochurePdf: brochurePdf
-          ? {
-              public_id: brochurePdf.publicId,
-              secure_url: brochurePdf.url,
-            }
-          : undefined,
-
-        publishedAt:
-          payload.status === "published" ? new Date() : null,
-      });
-
-      return blog;
-    } catch (error) {
-      if (banner?.publicId) {
-        await deleteFile(banner.publicId);
-      }
-
-      if (brochurePdf?.publicId) {
-        await deleteFile(brochurePdf.publicId);
-      }
-
-      throw error;
+    if (bannerFile) {
+      banner = await uploadFile(bannerFile, "blogs/banners");
     }
+
+    if (resourceFiles && resourceFiles.length > 0) {
+      uploadedFiles = await uploadMultipleFiles(resourceFiles, "blogs/resources");
+    }
+
+    const blogData = {
+      ...data,
+      banner: banner || undefined,
+      files: uploadedFiles,
+    };
+
+    const blog = new Blog(blogData);
+    return await blog.save();
   }
 
-  async updateBlog(
-    id: string,
-    payload: any,
-    files?: {
-      banner?: Express.Multer.File[];
-      brochurePdf?: Express.Multer.File[];
-    }
-  ) {
-    const blog = await BlogPageModel.findById(id);
+  async getBlogs(query: {
+    page?: number;
+    limit?: number;
+    status?: BlogStatus;
+    category?: string;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
+  }) {
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      category,
+      search,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = query;
 
-    if (!blog) {
-      throw new Error("Blog not found");
-    }
-
-    if (files?.banner?.[0]) {
-      if (blog.banner?.public_id) {
-        await deleteFile(blog.banner.public_id);
-      }
-
-      const uploaded = await uploadFile(
-        files.banner[0],
-        "blogs/banner"
-      );
-
-      blog.banner = {
-        public_id: uploaded.publicId,
-        secure_url: uploaded.url,
-      };
-    }
-
-    if (files?.brochurePdf?.[0]) {
-      if (blog.brochurePdf?.public_id) {
-        await deleteFile(blog.brochurePdf.public_id);
-      }
-
-      const uploaded = await uploadFile(
-        files.brochurePdf[0],
-        "blogs/brochure"
-      );
-
-      blog.brochurePdf = {
-        public_id: uploaded.publicId,
-        secure_url: uploaded.url,
-      };
-    }
-
-    Object.assign(blog, payload);
-
-    if (
-      payload.status === "published" &&
-      !blog.publishedAt
-    ) {
-      blog.publishedAt = new Date();
-    }
-
-    await blog.save();
-
-    return blog;
-  }
-
-  async getBlogs(query: any) {
-    const page = Number(query.page) || 1;
-    const limit = Number(query.limit) || 10;
     const skip = (page - 1) * limit;
-
     const filter: any = {};
 
-    if (query.status) {
-      filter.status = query.status;
-    }
+    if (status) filter.status = status;
+    if (category) filter.category = category;
+    if (search) filter.$text = { $search: search };
 
-    if (query.blogCategory) {
-      filter.blogCategory = query.blogCategory;
-    }
+    const sort: any = {};
+    sort[sortBy] = sortOrder === "asc" ? 1 : -1;
 
     const [blogs, total] = await Promise.all([
-      BlogPageModel.find(filter)
-        .populate("blogCategory")
-        .populate("postedBy")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
-
-      BlogPageModel.countDocuments(filter),
+      Blog.find(filter).sort(sort).skip(skip).limit(limit),
+      Blog.countDocuments(filter),
     ]);
 
     return {
       blogs,
-      total,
-      page,
-      limit,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPrevPage: page > 1,
+      },
     };
   }
 
-  async getBlogById(id: string) {
-    return BlogPageModel.findById(id)
-      .populate("blogCategory")
-      .populate("postedBy");
+  async getBlogById(id: string): Promise<IBlog | null> {
+    return await Blog.findById(id);
   }
 
-  async getBlogBySlug(slug: string) {
-    return BlogPageModel.findOne({ slug })
-      .populate("blogCategory")
-      .populate("postedBy");
+  async getBlogBySlug(slug: string): Promise<IBlog | null> {
+    return await Blog.findOne({ slug });
   }
 
-  async deleteBlog(id: string) {
-    const blog = await BlogPageModel.findById(id);
+  async updateBlog(
+    id: string,
+    data: UpdateBlogInput,
+    bannerFile?: Express.Multer.File,
+    resourceFiles?: Express.Multer.File[]
+  ): Promise<IBlog | null> {
+    const existingBlog = await Blog.findById(id);
+    if (!existingBlog) {
+      return null;
+    }
 
+    if (data.slug && data.slug !== existingBlog.slug) {
+      const blogWithSlug = await Blog.findOne({
+        slug: data.slug,
+        _id: { $ne: id },
+      });
+      if (blogWithSlug) {
+        throw new Error("Slug already exists. Please use a unique slug.");
+      }
+    }
+
+    const updateData: any = { ...data };
+
+    if (bannerFile) {
+      if (existingBlog.banner?.publicId) {
+        await deleteFile(existingBlog.banner.publicId);
+      }
+      const newBanner = await uploadFile(bannerFile, "blogs/banners");
+      updateData.banner = newBanner;
+    }
+
+    if (resourceFiles && resourceFiles.length > 0) {
+      if (existingBlog.files && existingBlog.files.length > 0) {
+        for (const file of existingBlog.files) {
+          await deleteFile(file.publicId);
+        }
+      }
+      const uploadedFiles = await uploadMultipleFiles(resourceFiles, "blogs/resources");
+      updateData.files = uploadedFiles;
+    }
+
+    const updatedBlog = await Blog.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    return updatedBlog;
+  }
+
+  async deleteBlog(id: string): Promise<IBlog | null> {
+    const blog = await Blog.findById(id);
     if (!blog) {
-      throw new Error("Blog not found");
+      return null;
     }
 
-    if (blog.banner?.public_id) {
-      await deleteFile(blog.banner.public_id);
+    if (blog.banner?.publicId) {
+      await deleteFile(blog.banner.publicId);
     }
 
-    if (blog.brochurePdf?.public_id) {
-      await deleteFile(blog.brochurePdf.public_id);
+    if (blog.files && blog.files.length > 0) {
+      for (const file of blog.files) {
+        await deleteFile(file.publicId);
+      }
     }
 
-    await blog.deleteOne();
+    await Blog.findByIdAndDelete(id);
+    return blog;
+  }
 
-    return true;
+  async deleteMultipleBlogs(ids: string[]): Promise<{
+    deletedCount: number;
+    failedIds: string[];
+  }> {
+    const failedIds: string[] = [];
+    let deletedCount = 0;
+
+    for (const id of ids) {
+      try {
+        const blog = await Blog.findById(id);
+        if (blog) {
+          if (blog.banner?.publicId) {
+            await deleteFile(blog.banner.publicId);
+          }
+          if (blog.files && blog.files.length > 0) {
+            for (const file of blog.files) {
+              await deleteFile(file.publicId);
+            }
+          }
+          await Blog.findByIdAndDelete(id);
+          deletedCount++;
+        }
+      } catch (error) {
+        failedIds.push(id);
+      }
+    }
+
+    return { deletedCount, failedIds };
+  }
+
+  async updateBlogStatus(id: string, status: BlogStatus): Promise<IBlog | null> {
+    return await Blog.findByIdAndUpdate(
+      id,
+      { $set: { status } },
+      { new: true, runValidators: true }
+    );
+  }
+
+  async getBlogStats(): Promise<{
+    total: number;
+    draft: number;
+    published: number;
+  }> {
+    const [total, draft, published] = await Promise.all([
+      Blog.countDocuments(),
+      Blog.countDocuments({ status: "draft" }),
+      Blog.countDocuments({ status: "published" }),
+    ]);
+
+    return { total, draft, published };
   }
 }
 
-export const blogService = new BlogService();
+export default new BlogService();

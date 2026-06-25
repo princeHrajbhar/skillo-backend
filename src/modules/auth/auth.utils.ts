@@ -1,4 +1,4 @@
-import crypto from "node:crypto";
+import crypto from 'node:crypto';
 
 /**
  * Generates a cryptographically secure 6-digit OTP.
@@ -12,7 +12,7 @@ export const generateOTP = (): string => {
  * Used for refresh tokens so they can be hashed before storage.
  */
 export const generateSecureToken = (bytes = 32): string => {
-  return crypto.randomBytes(bytes).toString("hex");
+  return crypto.randomBytes(bytes).toString('hex');
 };
 
 /**

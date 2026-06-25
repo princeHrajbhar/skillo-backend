@@ -1,14 +1,17 @@
-// src/models/blog-page.model.ts
+// src/models/blog.model.ts
 
-import mongoose, { Schema, Document, Model } from "mongoose";
+import {
+  Document,
+  Model,
+  Schema,
+  model,
+} from "mongoose";
 
-/* ============================
-   Interfaces
-============================ */
+export type BlogStatus = "draft" | "published";
 
-export interface ICloudinaryAsset {
-  public_id: string;
-  secure_url: string;
+export interface ICloudinaryFile {
+  url: string;
+  publicId: string;
 }
 
 export interface IFAQ {
@@ -16,55 +19,57 @@ export interface IFAQ {
   answer: string;
 }
 
-export interface IContentSection {
-  htmlContent: string;
+export interface ISocialMediaLink {
+  platform: string;
+  url: string;
 }
 
-export interface IBlogPage extends Document {
+export interface IResourceLink {
+  title: string;
+  url: string;
+}
+
+export interface IBlog extends Document {
   title: string;
   slug: string;
+  description: string;
+
+  category: string;
+
+  keyword: string[];
+
+  postingDate: Date;
+  postedBy: string;
+
+  socialMediaLinks: ISocialMediaLink[];
+
+  resourceLinks: IResourceLink[];
+
+  banner: ICloudinaryFile;
+
+  files: ICloudinaryFile[];
+
+  faq: IFAQ[];
 
   seoTitle: string;
   seoDescription: string;
-  keywords: string[];
 
-  banner: ICloudinaryAsset;
+  content: string;
 
-  brochurePdf?: ICloudinaryAsset;
-
-  urls: string[];
-
-  contentSections: IContentSection[];
-
-  faqs: IFAQ[];
-
-  blogCategory: mongoose.Types.ObjectId;
-
-  postedBy: mongoose.Types.ObjectId;
-
-  postingDate: Date;
-
-  status: "draft" | "published";
-
-  publishedAt?: Date | null;
+  status: BlogStatus;
 
   createdAt: Date;
   updatedAt: Date;
 }
 
-/* ============================
-   Sub Schemas
-============================ */
-
-const CloudinaryAssetSchema = new Schema<ICloudinaryAsset>(
+const CloudinaryFileSchema = new Schema<ICloudinaryFile>(
   {
-    public_id: {
+    url: {
       type: String,
       required: true,
       trim: true,
     },
-
-    secure_url: {
+    publicId: {
       type: String,
       required: true,
       trim: true,
@@ -82,7 +87,6 @@ const FAQSchema = new Schema<IFAQ>(
       required: true,
       trim: true,
     },
-
     answer: {
       type: String,
       required: true,
@@ -94,23 +98,43 @@ const FAQSchema = new Schema<IFAQ>(
   }
 );
 
-const ContentSectionSchema = new Schema<IContentSection>(
+const SocialMediaLinkSchema = new Schema<ISocialMediaLink>(
   {
-    htmlContent: {
+    platform: {
       type: String,
       required: true,
+      trim: true,
+    },
+    url: {
+      type: String,
+      required: true,
+      trim: true,
     },
   },
   {
-    _id: true,
+    _id: false,
   }
 );
 
-/* ============================
-   Main Blog Schema
-============================ */
+const ResourceLinkSchema = new Schema<IResourceLink>(
+  {
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    url: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+  },
+  {
+    _id: false,
+  }
+);
 
-const BlogPageSchema = new Schema<IBlogPage>(
+const BlogSchema = new Schema<IBlog>(
   {
     title: {
       type: String,
@@ -126,58 +150,25 @@ const BlogPageSchema = new Schema<IBlogPage>(
       trim: true,
     },
 
-    seoTitle: {
+    description: {
       type: String,
       required: true,
       trim: true,
     },
 
-    seoDescription: {
+    category: {
       type: String,
       required: true,
-      trim: true,
     },
 
-    keywords: {
-      type: [String],
+    keyword: {
+      type: [
+        {
+          type: String,
+          trim: true,
+        },
+      ],
       default: [],
-    },
-
-    banner: {
-      type: CloudinaryAssetSchema,
-      required: true,
-    },
-
-    brochurePdf: {
-      type: CloudinaryAssetSchema,
-      default: null,
-    },
-
-    urls: {
-      type: [String],
-      default: [],
-    },
-
-    contentSections: {
-      type: [ContentSectionSchema],
-      default: [],
-    },
-
-    faqs: {
-      type: [FAQSchema],
-      default: [],
-    },
-
-    blogCategory: {
-      type: Schema.Types.ObjectId,
-      ref: "BlogCategory",
-      required: true,
-    },
-
-    postedBy: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
     },
 
     postingDate: {
@@ -185,38 +176,66 @@ const BlogPageSchema = new Schema<IBlogPage>(
       default: Date.now,
     },
 
+    postedBy: {
+      type: String,
+      required: true,
+    },
+
+    socialMediaLinks: {
+      type: [SocialMediaLinkSchema],
+      default: [],
+    },
+
+    resourceLinks: {
+      type: [ResourceLinkSchema],
+      default: [],
+    },
+
+    banner: {
+      type: CloudinaryFileSchema,
+      required: false,
+    },
+
+    files: {
+      type: [CloudinaryFileSchema],
+      default: [],
+    },
+
+    faq: {
+      type: [FAQSchema],
+      default: [],
+    },
+
+    seoTitle: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    seoDescription: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    content: {
+      type: String,
+      required: true,
+    },
+
     status: {
       type: String,
       enum: ["draft", "published"],
       default: "draft",
-    },
-
-    publishedAt: {
-      type: Date,
-      default: null,
+      required: true,
     },
   },
   {
     timestamps: true,
+    versionKey: false,
   }
 );
 
-/* ============================
-   Indexes
-============================ */
+const Blog: Model<IBlog> = model<IBlog>("Blog", BlogSchema);
 
-BlogPageSchema.index({ slug: 1 });
-BlogPageSchema.index({ status: 1 });
-BlogPageSchema.index({ blogCategory: 1 });
-BlogPageSchema.index({ postingDate: -1 });
-BlogPageSchema.index({ publishedAt: -1 });
-
-/* ============================
-   Model
-============================ */
-
-const BlogPageModel: Model<IBlogPage> =
-  mongoose.models.BlogPage ||
-  mongoose.model<IBlogPage>("BlogPage", BlogPageSchema);
-
-export default BlogPageModel;
+export default Blog;

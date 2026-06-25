@@ -1,5 +1,5 @@
 // program.type.ts
-import { HydratedDocument } from "mongoose";
+import { HydratedDocument } from 'mongoose';
 
 export interface ICloudinaryFile {
   url: string;
@@ -33,9 +33,9 @@ export interface IProgram {
 
   // Course Details
   duration: string;
-  level: "Beginner" | "Intermediate" | "Advanced";
+  level: 'Beginner' | 'Intermediate' | 'Advanced';
   language: string;
-  mode: "Online" | "Offline" | "Hybrid";
+  mode: 'Online' | 'Offline' | 'Hybrid';
   certification: boolean;
 
   // Pricing

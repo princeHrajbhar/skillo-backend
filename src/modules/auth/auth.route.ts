@@ -1,13 +1,13 @@
-import { Router } from "express";
-import * as authController from "./auth.controller.js";
-import { protect, authorize } from "../../middlewares/auth.middleware.js";
-import { validate } from "../../middlewares/validate.middleware.js";
+import { Router } from 'express';
+import * as authController from './auth.controller.js';
+import { protect, authorize } from '../../middlewares/auth.middleware.js';
+import { validate } from '../../middlewares/validate.middleware.js';
 import {
   loginLimiter,
   otpLimiter,
   authLimiter,
   resetPasswordLimiter,
-} from "../../middlewares/Ratelimiter.middleware .js";
+} from '../../middlewares/Ratelimiter.middleware .js';
 import {
   registerSchema,
   verifyOtpSchema,
@@ -16,88 +16,67 @@ import {
   resetPasswordSchema,
   resendOtpSchema,
   changePasswordSchema,
-} from "./auth.validators.js";
+} from './auth.validators.js';
 
 const router = Router();
 
 // ─── Public routes ────────────────────────────────────────────────────────────
 
-router.post("/register",
-  otpLimiter,
-  validate(registerSchema),
-  authController.register
-);
+router.post('/register', otpLimiter, validate(registerSchema), authController.register);
 
-router.post("/verify-otp",
+router.post(
+  '/verify-otp',
   authLimiter,
   validate(verifyOtpSchema),
-  authController.verifyOtpController
+  authController.verifyOtpController,
 );
 
-router.post("/resend-otp",
+router.post(
+  '/resend-otp',
   otpLimiter,
   validate(resendOtpSchema),
-  authController.resendOtpController
+  authController.resendOtpController,
 );
 
-router.post("/login",
-  loginLimiter,
-  validate(loginSchema),
-  authController.loginController
-);
+router.post('/login', loginLimiter, validate(loginSchema), authController.loginController);
 
-router.post("/refresh",
-  authLimiter,
-  authController.refreshController
-);
+router.post('/refresh', authLimiter, authController.refreshController);
 
-router.post("/logout",
-  authController.logoutController
-);
+router.post('/logout', authController.logoutController);
 
-router.post("/forgot-password",
+router.post(
+  '/forgot-password',
   otpLimiter,
   validate(forgotPasswordSchema),
-  authController.forgotPasswordController
+  authController.forgotPasswordController,
 );
 
-router.post("/reset-password",
+router.post(
+  '/reset-password',
   resetPasswordLimiter,
   validate(resetPasswordSchema),
-  authController.resetPasswordController
+  authController.resetPasswordController,
 );
 
 // ─── Authenticated routes ─────────────────────────────────────────────────────
 
-router.get("/me",
-  protect,
-  authController.meController
-);
+router.get('/me', protect, authController.meController);
 
-router.get("/sessions",
-  protect,
-  authController.getSessionsController
-);
+router.get('/sessions', protect, authController.getSessionsController);
 
-router.post("/logout-all",
-  protect,
-  authController.logoutAllController
-);
+router.post('/logout-all', protect, authController.logoutAllController);
 
-router.post("/change-password",
+router.post(
+  '/change-password',
   protect,
   validate(changePasswordSchema),
-  authController.changePasswordController
+  authController.changePasswordController,
 );
 
 // ─── Admin-only example ───────────────────────────────────────────────────────
 
-router.get("/admin",
-  protect,
-  authorize("admin"),
-  (req, res) => {
-    res.status(200).json({ message: "Welcome, admin." });
-  }
-);
+router.get('/admin', protect, authorize('admin'), (req, res) => {
+  res.status(200).json({ message: 'Welcome, admin.' });
+});
 
 export default router;

@@ -1,7 +1,7 @@
 // middlewares/validate.middleware.js
-import { Request, Response, NextFunction } from "express";
-import { ZodSchema } from "zod";
-import { AppError, ErrorCode } from "../errors/AppError.js";
+import { Request, Response, NextFunction } from 'express';
+import { ZodSchema } from 'zod';
+import { AppError, ErrorCode } from '../errors/AppError.js';
 
 export const validate = (schema: ZodSchema) => {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -21,7 +21,7 @@ export const validate = (schema: ZodSchema) => {
       } catch (wrappedError: any) {
         // Both formats failed, return the error
         const message =
-          wrappedError.issues?.map((e: any) => e.message).join(", ") || wrappedError.message;
+          wrappedError.issues?.map((e: any) => e.message).join(', ') || wrappedError.message;
         return next(new AppError(message, 400, ErrorCode.VALIDATION_ERROR));
       }
     }

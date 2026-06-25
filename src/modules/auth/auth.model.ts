@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document } from 'mongoose';
 
 // ─── Shared timestamps mixin ──────────────────────────────────────────────────
 // Mongoose adds createdAt / updatedAt automatically when { timestamps: true }
@@ -28,24 +28,24 @@ export interface ISession extends Document, Timestamps {
 
 const sessionSchema = new Schema<ISession>(
   {
-    userId:           { type: Schema.Types.ObjectId, ref: "User", required: true },
+    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     refreshTokenHash: { type: String, required: true, select: false },
-    userAgent:        String,
-    ip:               String,
-    expiresAt:        { type: Date, required: true },
-    lastUsedAt:       { type: Date, default: () => new Date() },
+    userAgent: String,
+    ip: String,
+    expiresAt: { type: Date, required: true },
+    lastUsedAt: { type: Date, default: () => new Date() },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL cleanup
 sessionSchema.index({ userId: 1 });
 
-export const Session = mongoose.model<ISession>("Session", sessionSchema);
+export const Session = mongoose.model<ISession>('Session', sessionSchema);
 
 // ─── User ─────────────────────────────────────────────────────────────────────
 
-export type UserRole = "user" | "admin";
+export type UserRole = 'user' | 'admin';
 
 export interface IUser extends Document, Timestamps {
   _id: mongoose.Types.ObjectId;
@@ -61,21 +61,21 @@ export interface IUser extends Document, Timestamps {
 
 const userSchema = new Schema<IUser>(
   {
-    email:               { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password:            { type: String, select: false },
-    isVerified:          { type: Boolean, default: false },
-    role:                { type: String, enum: ["user", "admin"], default: "user" },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    password: { type: String, select: false },
+    isVerified: { type: Boolean, default: false },
+    role: { type: String, enum: ['user', 'admin'], default: 'user' },
     failedLoginAttempts: { type: Number, default: 0 },
-    lockedUntil:         { type: Date },
+    lockedUntil: { type: Date },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-export const User = mongoose.model<IUser>("User", userSchema);
+export const User = mongoose.model<IUser>('User', userSchema);
 
 // ─── OTP ──────────────────────────────────────────────────────────────────────
 
-export type OTPType = "REGISTER" | "RESET_PASSWORD";
+export type OTPType = 'REGISTER' | 'RESET_PASSWORD';
 
 export interface IOTP extends Document, Timestamps {
   email: string;
@@ -88,16 +88,16 @@ export interface IOTP extends Document, Timestamps {
 
 const otpSchema = new Schema<IOTP>(
   {
-    email:     { type: String, required: true, lowercase: true },
-    otp:       { type: String, required: true, select: false },
-    type:      { type: String, enum: ["REGISTER", "RESET_PASSWORD"], required: true },
+    email: { type: String, required: true, lowercase: true },
+    otp: { type: String, required: true, select: false },
+    type: { type: String, enum: ['REGISTER', 'RESET_PASSWORD'], required: true },
     expiresAt: { type: Date, required: true },
-    attempts:  { type: Number, default: 0 },
+    attempts: { type: Number, default: 0 },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 otpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL cleanup
 otpSchema.index({ email: 1, type: 1 });
 
-export const OTP = mongoose.model<IOTP>("OTP", otpSchema);
+export const OTP = mongoose.model<IOTP>('OTP', otpSchema);

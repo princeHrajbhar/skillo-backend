@@ -1,6 +1,6 @@
 // src/models/blog-category.model.ts
 
-import mongoose, { Schema, Document, Model } from "mongoose";
+import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface IBlogCategory extends Document {
   name: string;
@@ -26,14 +26,10 @@ const BlogCategorySchema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 const BlogCategoryModel: Model<IBlogCategory> =
-  mongoose.models.BlogCategory ||
-  mongoose.model<IBlogCategory>(
-    "BlogCategory",
-    BlogCategorySchema
-  );
+  mongoose.models.BlogCategory || mongoose.model<IBlogCategory>('BlogCategory', BlogCategorySchema);
 
 export default BlogCategoryModel;

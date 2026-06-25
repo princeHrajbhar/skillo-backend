@@ -1,11 +1,21 @@
-import { app } from "./app.js";
-import { ENV } from "./config/env.js";
-import { connectDB } from "./config/db.js";
+// 1. THIS MUST BE FIRST
+import 'dotenv/config';
 
-const PORT = ENV.PORT || 5000;
+import app from './app.js';
+import { connectDB } from './config/db.js';
 
-await connectDB();
+const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log("🚀 Server running at http://localhost:" + PORT);
-});
+const start = async () => {
+  try {
+    await connectDB();
+
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+  }
+};
+
+start();

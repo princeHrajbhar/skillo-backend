@@ -1,5 +1,5 @@
-import jwt from "jsonwebtoken";
-import { AppError, ErrorCode } from "../../errors/AppError.js";
+import jwt from 'jsonwebtoken';
+import { AppError, ErrorCode } from '../../errors/AppError.js';
 
 const getSecret = (key: string): string => {
   const secret = process.env[key];
@@ -16,11 +16,11 @@ export interface AccessTokenPayload {
 }
 
 export const generateAccessToken = (payload: AccessTokenPayload): string => {
-  return jwt.sign(payload, getSecret("JWT_ACCESS_SECRET"), { expiresIn: "15m" });
+  return jwt.sign(payload, getSecret('JWT_ACCESS_SECRET'), { expiresIn: '15m' });
 };
 
 export const verifyAccessToken = (token: string): AccessTokenPayload => {
-  return jwt.verify(token, getSecret("JWT_ACCESS_SECRET")) as AccessTokenPayload;
+  return jwt.verify(token, getSecret('JWT_ACCESS_SECRET')) as AccessTokenPayload;
 };
 
 // ─── Refresh token — we only store a HASH; the token itself is opaque ────────
@@ -31,5 +31,5 @@ export const verifyAccessToken = (token: string): AccessTokenPayload => {
 export const generateAccessTokenForSession = (
   userId: string,
   role: string,
-  sessionId: string
+  sessionId: string,
 ): string => generateAccessToken({ userId, role, sessionId });

@@ -1,5 +1,5 @@
 // program.validation.ts
-import { z } from "zod";
+import { z } from 'zod';
 
 const cloudinaryFileSchema = z.object({
   url: z.string().url(),
@@ -31,9 +31,9 @@ const programSchema = z.object({
   fullDescription: z.string().min(1),
 
   duration: z.string().min(1),
-  level: z.enum(["Beginner", "Intermediate", "Advanced"]),
-  language: z.string().optional().default("English"),
-  mode: z.enum(["Online", "Offline", "Hybrid"]).optional(),
+  level: z.enum(['Beginner', 'Intermediate', 'Advanced']),
+  language: z.string().optional().default('English'),
+  mode: z.enum(['Online', 'Offline', 'Hybrid']).optional(),
   certification: z.boolean().optional(),
 
   price: z.number().min(0),
@@ -66,36 +66,29 @@ const programSchema = z.object({
   active: z.boolean().optional(),
 });
 
-export const createProgramZodSchema = programSchema.superRefine(
-  (data, ctx) => {
-    if (
-      data.discountedPrice !== undefined &&
-      data.discountedPrice > data.price
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["discountedPrice"],
-        message: "Discounted price cannot exceed price",
-      });
-    }
+export const createProgramZodSchema = programSchema.superRefine((data, ctx) => {
+  if (data.discountedPrice !== undefined && data.discountedPrice > data.price) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['discountedPrice'],
+      message: 'Discounted price cannot exceed price',
+    });
   }
-);
+});
 
-export const updateProgramZodSchema = programSchema
-  .partial()
-  .superRefine((data, ctx) => {
-    if (
-      data.price !== undefined &&
-      data.discountedPrice !== undefined &&
-      data.discountedPrice > data.price
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["discountedPrice"],
-        message: "Discounted price cannot exceed price",
-      });
-    }
-  });
+export const updateProgramZodSchema = programSchema.partial().superRefine((data, ctx) => {
+  if (
+    data.price !== undefined &&
+    data.discountedPrice !== undefined &&
+    data.discountedPrice > data.price
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['discountedPrice'],
+      message: 'Discounted price cannot exceed price',
+    });
+  }
+});
 
 export type CreateProgramInput = z.infer<typeof createProgramZodSchema>;
 export type UpdateProgramInput = z.infer<typeof updateProgramZodSchema>;

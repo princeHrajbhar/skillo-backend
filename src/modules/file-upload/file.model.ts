@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IFile extends Document {
   originalName: string;
@@ -34,15 +34,12 @@ const fileSchema = new Schema<IFile>(
     },
     folder: {
       type: String,
-      default: "uploads",
+      default: 'uploads',
     },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-export const FileModel = mongoose.model<IFile>(
-  "File",
-  fileSchema
-);
+export const FileModel = mongoose.model<IFile>('File', fileSchema);
