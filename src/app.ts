@@ -7,7 +7,8 @@ import fileRoutes from './modules/file-upload/file.routes.js';
 import blogRoutes from './modules/blog/blog.route.js';
 import { globalErrorHandler } from './middlewares/errorMiddleware.js';
 import authRoutes from "./modules/auth/auth.route.js";
-
+import blogcategoryRoutes from "../src/modules/blogCategory/blogCategory.route.js"
+import userRoutes from '../src/modules/user/user.route.js'
 
 
 const app: Application = express();
@@ -36,8 +37,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/programs', programRoutes);
 app.use('/api', uploadRoutes);
-app.use('/api/files', fileRoutes);
+app.use('/api/v1/files', fileRoutes);
 app.use('/api/v1/blogs', blogRoutes);
+app.use('/api/v1/blogcategory', blogcategoryRoutes);
+app.use('/api/v1/user', userRoutes)
 
 /**
  * Health Check
@@ -63,3 +66,8 @@ app.use((req: Request, res: Response) => {
 app.use(globalErrorHandler);
 
 export default app;
+
+
+
+
+

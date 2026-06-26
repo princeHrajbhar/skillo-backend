@@ -1,14 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { upload } from '../../middleware/upload.js';
 import { uploadFile, deleteFile } from '../../utils/fileUpload.js';
-
 import { FileModel } from './file.model.js';
 
 const router = Router();
 
 /**
  * Upload File
- * POST /api/files
  */
 router.post('/', upload.single('file'), async (req: Request, res: Response) => {
   try {
@@ -22,12 +20,25 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     const uploaded = await uploadFile(req.file, 'uploads');
 
     const file = await FileModel.create({
-      originalName: req.file.originalname,
+      originalName: uploaded.originalFilename,
       url: uploaded.url,
       publicId: uploaded.publicId,
+
       mimeType: req.file.mimetype,
-      size: req.file.size,
+      size: uploaded.bytes,
+
       folder: 'uploads',
+
+      resourceType: uploaded.resourceType,
+      format: uploaded.format,
+
+      width: uploaded.width,
+      height: uploaded.height,
+
+      duration: uploaded.duration,
+      pages: uploaded.pages,
+
+      uploadedAt: new Date(uploaded.createdAt),
     });
 
     return res.status(201).json({
@@ -45,9 +56,8 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
 
 /**
  * Get All Files
- * GET /api/files
  */
-router.get('/', async (_req, res) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
     const files = await FileModel.find().sort({
       createdAt: -1,
@@ -68,9 +78,8 @@ router.get('/', async (_req, res) => {
 
 /**
  * Get Single File
- * GET /api/files/:id
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req: Request, res: Response) => {
   try {
     const file = await FileModel.findById(req.params.id);
 
@@ -95,9 +104,8 @@ router.get('/:id', async (req, res) => {
 
 /**
  * Update File
- * PUT /api/files/:id
  */
-router.put('/:id', upload.single('file'), async (req, res) => {
+router.put('/:id', upload.single('file'), async (req: Request, res: Response) => {
   try {
     const existing = await FileModel.findById(req.params.id);
 
@@ -119,11 +127,25 @@ router.put('/:id', upload.single('file'), async (req, res) => {
 
     const uploaded = await uploadFile(req.file, 'uploads');
 
-    existing.originalName = req.file.originalname;
+    existing.originalName = uploaded.originalFilename;
     existing.url = uploaded.url;
     existing.publicId = uploaded.publicId;
+
     existing.mimeType = req.file.mimetype;
-    existing.size = req.file.size;
+    existing.size = uploaded.bytes;
+
+    existing.folder = 'uploads';
+
+    existing.resourceType = uploaded.resourceType;
+    existing.format = uploaded.format;
+
+    existing.width = uploaded.width;
+    existing.height = uploaded.height;
+
+    existing.duration = uploaded.duration;
+    existing.pages = uploaded.pages;
+
+    existing.uploadedAt = new Date(uploaded.createdAt);
 
     await existing.save();
 
@@ -142,9 +164,8 @@ router.put('/:id', upload.single('file'), async (req, res) => {
 
 /**
  * Delete File
- * DELETE /api/files/:id
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const file = await FileModel.findById(req.params.id);
 
