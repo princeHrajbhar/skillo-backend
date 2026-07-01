@@ -1,5 +1,4 @@
-import { Types } from 'mongoose';
-
+// recorded-course\skillo-backend\src\modules\course\course.type.ts
 export interface ICloudinaryFile {
   url: string;
   publicId: string;

@@ -3,30 +3,34 @@ import { Request, Response, NextFunction } from 'express';
 import * as authService from './auth.service.js';
 import { buildToken } from './auth.service.js';
 import type { AuthRequest } from '../../middlewares/auth.middleware.js';
+import { UserService } from '../user/user.service.js';
 
 // ─── Cookie options ───────────────────────────────────────────────────────────
 const isProduction = process.env.NODE_ENV === 'production';
 const accessCookieOptions = {
   httpOnly: true,
   secure: isProduction,
-  sameSite: 'strict' as const,
-  maxAge: 15 * 60 * 1000, // 15 min — matches JWT expiry
+  sameSite: 'lax' as const,
+  maxAge: 15 * 60 * 1000, // 15 min
+  path: '/',
 };
 
 const refreshCookieOptions = {
   httpOnly: true,
   secure: isProduction,
-  sameSite: 'strict' as const,
+  sameSite: 'lax' as const,
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  path: '/api/auth/refresh', // scoped — not sent on every request
+  path: '/',
 };
 
-const clearRefreshCookieOptions = {
+const clearCookieOptions = {
   httpOnly: true,
   secure: isProduction,
-  sameSite: 'strict' as const,
-  path: '/api/auth/refresh',
+  sameSite: 'lax' as const,
+  path: '/',
 };
+
+const userService = new UserService();
 
 // ─── Register ─────────────────────────────────────────────────────────────────
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -85,15 +89,12 @@ export const loginController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    // Debug logging
     console.log('=== Login Controller ===');
-    console.log('Request body:', req.body);
-    console.log('Email:', req.body?.email);
-    console.log('Password:', req.body?.password ? '***' : 'undefined');
+    console.log('📧 Email:', req.body?.email);
+    console.log('🔑 Password:', req.body?.password ? '***' : 'undefined');
 
     const { email, password } = req.body;
 
-    // Validate presence
     if (!email || !password) {
       res.status(400).json({
         success: false,
@@ -108,12 +109,18 @@ export const loginController = async (
       ip: req.ip ?? req.socket?.remoteAddress,
     });
 
+    console.log('✅ Login successful for:', email);
+    console.log('🍪 Setting cookies...');
+
     res.cookie('accessToken', accessToken, accessCookieOptions);
     res.cookie('refreshToken', refreshToken, refreshCookieOptions);
 
     res.status(200).json({
       success: true,
       message: 'Logged in successfully',
+      data: {
+        accessToken, // Return token in body for client storage
+      },
     });
   } catch (error) {
     next(error);
@@ -127,8 +134,13 @@ export const refreshController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
+    console.log('🔄 Refresh request received');
+    console.log('🍪 Cookies received:', req.cookies);
+
     const token = req.cookies?.refreshToken as string | undefined;
+    
     if (!token) {
+      console.log('❌ No refresh token in cookies');
       res.status(401).json({
         success: false,
         code: 'TOKEN_INVALID',
@@ -137,14 +149,22 @@ export const refreshController = async (
       return;
     }
 
+    console.log('✅ Refresh token found, processing...');
     const { newAccessToken, newRefreshToken } = await authService.refreshTokenService(token);
+    
     res.cookie('accessToken', newAccessToken, accessCookieOptions);
     res.cookie('refreshToken', newRefreshToken, refreshCookieOptions);
+    
+    console.log('✅ Tokens refreshed successfully');
     res.status(200).json({
       success: true,
       message: 'Tokens refreshed',
+      data: {
+        accessToken: newAccessToken,
+      },
     });
   } catch (error) {
+    console.error('❌ Refresh error:', error);
     next(error);
   }
 };
@@ -160,8 +180,8 @@ export const logoutController = async (
     if (token) {
       await authService.logoutService(token);
     }
-    res.clearCookie('accessToken', { path: '/' });
-    res.clearCookie('refreshToken', clearRefreshCookieOptions);
+    res.clearCookie('accessToken', clearCookieOptions);
+    res.clearCookie('refreshToken', clearCookieOptions);
     res.status(200).json({
       success: true,
       message: 'Logged out successfully',
@@ -179,8 +199,8 @@ export const logoutAllController = async (
 ): Promise<void> => {
   try {
     await authService.logoutAllService(req.user!.userId);
-    res.clearCookie('accessToken', { path: '/' });
-    res.clearCookie('refreshToken', clearRefreshCookieOptions);
+    res.clearCookie('accessToken', clearCookieOptions);
+    res.clearCookie('refreshToken', clearCookieOptions);
     res.status(200).json({
       success: true,
       message: 'Logged out from all devices',
@@ -271,11 +291,14 @@ export const meController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
+    const user = await userService.getUserById(req.user!.userId);
     res.status(200).json({
       success: true,
       data: {
-        userId: req.user!.userId,
-        role: req.user!.role,
+        userId: user._id,
+        email: user.email,
+        role: user.role,
+        isVerified: user.isVerified,
       },
     });
   } catch (error) {

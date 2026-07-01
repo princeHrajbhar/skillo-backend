@@ -3,8 +3,14 @@ import jwt from 'jsonwebtoken';
 import { verifyAccessToken } from '../modules/auth/auth.jwt.js';
 import { AppError, ErrorCode } from '../errors/AppError.js';
 
+import type { UserRole } from "../modules/auth/auth.model.js";
+
 export interface AuthRequest extends Request {
-  user?: { userId: string; role: string; sessionId?: string };
+  user?: {
+    userId: string;
+    role: UserRole;
+    sessionId?: string;
+  };
 }
 
 // ─── protect ────────────────────────────────────────────────────────────────
@@ -35,7 +41,7 @@ export const protect = (req: AuthRequest, res: Response, next: NextFunction): vo
 
 // ─── authorize ──────────────────────────────────────────────────────────────
 
-export const authorize = (...roles: string[]) => {
+export const authorize = (...roles: UserRole[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user || !roles.includes(req.user.role)) {
       return next(new AppError('Insufficient permissions', 403, ErrorCode.FORBIDDEN));

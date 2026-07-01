@@ -1,3 +1,5 @@
+ //  recorded-course\skillo-backend\src\middleware\upload.ts
+
 import multer from "multer";
 
 const storage = multer.memoryStorage();

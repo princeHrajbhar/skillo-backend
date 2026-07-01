@@ -1,27 +1,66 @@
 import { Router } from 'express';
 import { UserController } from './user.controller.js';
+import { protect, authorize } from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 const userController = new UserController();
 
-router.post('/', userController.createUser.bind(userController));
+// ==================== ADMIN ROUTES ====================
 
-router.get('/', userController.getUsers.bind(userController));
+// Create User
+router.post(
+  '/',
+  protect,
+  authorize('admin'),
+  userController.createUser.bind(userController)
+);
 
+// Get All Users
+router.get(
+  '/',
+  protect,
+  authorize('admin'),
+  userController.getUsers.bind(userController)
+);
+
+// Check User Lock Status
 router.get(
   '/lock-status/:email',
+  protect,
+  authorize('admin'),
   userController.checkLockStatus.bind(userController)
 );
 
+// Verify / Unverify User
 router.patch(
   '/:id/verify',
+  protect,
+  authorize('admin'),
   userController.toggleVerification.bind(userController)
 );
 
-router.get('/:id', userController.getUserById.bind(userController));
+// Get User By ID
+router.get(
+  '/:id',
+  protect,
+  authorize('admin'),
+  userController.getUserById.bind(userController)
+);
 
-router.put('/:id', userController.updateUser.bind(userController));
+// Update User
+router.put(
+  '/:id',
+  protect,
+  authorize('admin'),
+  userController.updateUser.bind(userController)
+);
 
-router.delete('/:id', userController.deleteUser.bind(userController));
+// Delete User
+router.delete(
+  '/:id',
+  protect,
+  authorize('admin'),
+  userController.deleteUser.bind(userController)
+);
 
 export default router;

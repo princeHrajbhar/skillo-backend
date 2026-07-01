@@ -1,47 +1,75 @@
-// recorded-course\skillo-backend\src\modules\blog\blog.route.ts
 import { Router } from "express";
 import multer from "multer";
 import blogController from "./blog.controller.js";
+import { protect, authorize } from "../../middlewares/auth.middleware.js";
 
 const router = Router();
 
-// Multer configuration - just memory storage, no file filter needed
-// File validation and upload handled by fileUpload utility
+// Multer configuration
 const upload = multer({ storage: multer.memoryStorage() });
 
 // ==================== PUBLIC ROUTES ====================
+
+// Get all blogs
 router.get("/", blogController.getBlogs);
+
+// Get blog statistics
 router.get("/stats", blogController.getBlogStats);
+
+// Get blog by slug
 router.get("/slug/:slug", blogController.getBlogBySlug);
+
+// Get blog by ID
 router.get("/:id", blogController.getBlogById);
 
-// ==================== CREATE BLOG ====================
+// ==================== ADMIN ROUTES ====================
+
+// Create Blog
 router.post(
   "/",
+  protect,
+  authorize("admin"),
   upload.fields([
-    { name: 'banner', maxCount: 1 },
-    { name: 'resources', maxCount: 10 }
+    { name: "banner", maxCount: 1 },
+    { name: "resources", maxCount: 10 },
   ]),
   blogController.createBlog
 );
 
-// ==================== UPDATE BLOG ====================
+// Update Blog
 router.put(
   "/:id",
+  protect,
+  authorize("admin"),
   upload.fields([
-    { name: 'banner', maxCount: 1 },
-    { name: 'resources', maxCount: 10 }
+    { name: "banner", maxCount: 1 },
+    { name: "resources", maxCount: 10 },
   ]),
   blogController.updateBlog
 );
 
-// ==================== DELETE BLOG ====================
-router.delete("/:id", blogController.deleteBlog);
+// Delete Blog
+router.delete(
+  "/:id",
+  protect,
+  authorize("admin"),
+  blogController.deleteBlog
+);
 
-// ==================== BULK DELETE ====================
-router.post("/bulk-delete", blogController.deleteMultipleBlogs);
+// Bulk Delete Blogs
+router.post(
+  "/bulk-delete",
+  protect,
+  authorize("admin"),
+  blogController.deleteMultipleBlogs
+);
 
-// ==================== UPDATE STATUS ====================
-router.patch("/:id/status", blogController.updateBlogStatus);
+// Update Blog Status
+router.patch(
+  "/:id/status",
+  protect,
+  authorize("admin"),
+  blogController.updateBlogStatus
+);
 
 export default router;

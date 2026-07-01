@@ -117,18 +117,11 @@ const CourseSchema = new Schema<ICourse>(
       min: 0,
     },
 
-    discountedPrice: {
-      type: Number,
-      default: 0,
-      min: 0,
-      validate: {
-        validator(this: ICourse, value: number) {
-          return value <= this.price;
-        },
-        message: 'Discounted price cannot exceed price',
-      },
-    },
-
+   discountedPrice: {
+  type: Number,
+  default: 0,
+  min: 0,
+},
     currency: {
       type: String,
       default: 'INR',

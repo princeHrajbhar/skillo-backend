@@ -1,5 +1,6 @@
+// modules/auth/auth.service.js
 import bcrypt from 'bcrypt';
-import { User, OTP, Session } from './auth.model.js';
+import { User, OTP, Session, OTPType } from './auth.model.js';
 import { generateOTP, generateSecureToken } from './auth.utils.js';
 import { addEmailJob } from '../../bullMQ/queues/emailQueue.js';
 import { otpTemplate, resetPasswordTemplate } from '../../bullMQ/utils/emailTemplate.js';
@@ -27,18 +28,31 @@ interface SessionMeta {
   ip?: string;
 }
 
+// ─── Token helpers (sessionId prefix for O(1) lookup) ────────────────────────
+
+const TOKEN_SEPARATOR = '.';
+
+export function buildToken(sessionId: string, secret: string): string {
+  return `${sessionId}${TOKEN_SEPARATOR}${secret}`;
+}
+
+export function splitToken(token: string): [string, string] {
+  if (!token) return ['', ''];
+  const idx = token.indexOf(TOKEN_SEPARATOR);
+  if (idx === -1) return ['', ''];
+  return [token.slice(0, idx), token.slice(idx + 1)];
+}
+
 // ─── Register ─────────────────────────────────────────────────────────────────
 
 export const registerUser = async (payload: { email: string; password: string }) => {
   const { email, password } = payload;
 
-  // Check for existing verified user
   const existingUser = await User.findOne({ email });
   if (existingUser?.isVerified) {
     throw new AppError('User already exists', 409, ErrorCode.USER_EXISTS);
   }
 
-  // OTP cooldown — prevent email flooding
   await assertOtpCooldown(email, 'REGISTER');
 
   const [hashedPassword, otp] = await Promise.all([
@@ -49,7 +63,6 @@ export const registerUser = async (payload: { email: string; password: string })
   const hashedOtp = await bcrypt.hash(otp, BCRYPT_ROUNDS);
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
 
-  // Upsert user (handles re-registration before verification)
   await User.findOneAndUpdate(
     { email },
     { email, password: hashedPassword, isVerified: false },
@@ -95,13 +108,11 @@ export const verifyOTP = async (payload: { email: string; otp: string }) => {
 export const loginUser = async (email: string, password: string, meta: SessionMeta = {}) => {
   const user = await User.findOne({ email }).select('+password +failedLoginAttempts +lockedUntil');
 
-  // Timing-safe: always run bcrypt even if user not found (prevents enumeration via timing)
   if (!user) {
     await bcrypt.hash(password, BCRYPT_ROUNDS);
     throw new AppError('Invalid credentials', 401, ErrorCode.INVALID_CREDENTIALS);
   }
 
-  // Account lockout check
   if (user.lockedUntil && user.lockedUntil > new Date()) {
     const retryAfterSec = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 1000);
     throw new AppError(
@@ -137,10 +148,8 @@ export const loginUser = async (email: string, password: string, meta: SessionMe
     throw new AppError('Invalid credentials', 401, ErrorCode.INVALID_CREDENTIALS);
   }
 
-  // Reset failed attempts on success
   await User.updateOne({ _id: user._id }, { $set: { failedLoginAttempts: 0, lockedUntil: null } });
 
-  // Enforce max concurrent sessions — prune oldest if over cap
   const sessionCount = await Session.countDocuments({ userId: user._id });
   if (sessionCount >= MAX_SESSIONS_PER_USER) {
     const oldest = await Session.find({ userId: user._id })
@@ -151,7 +160,6 @@ export const loginUser = async (email: string, password: string, meta: SessionMe
     logger.info({ userId: user._id }, 'Pruned oldest sessions due to session cap');
   }
 
-  // Generate opaque refresh token + store its hash
   const refreshToken = generateSecureToken();
   const refreshTokenHash = await bcrypt.hash(refreshToken, BCRYPT_ROUNDS);
 
@@ -172,44 +180,36 @@ export const loginUser = async (email: string, password: string, meta: SessionMe
 
   logger.info({ userId: user._id, sessionId: session._id }, 'User logged in');
   const tokenWithId = buildToken(session._id.toString(), refreshToken);
-  console.log(accessToken, refreshToken, tokenWithId);
+  
   return { accessToken, refreshToken: tokenWithId };
 };
 
 // ─── Refresh Token ────────────────────────────────────────────────────────────
 
 export const refreshTokenService = async (oldToken: string) => {
-  // Find all non-expired sessions — we must compare hashes to find the right one
-  // We limit the search by userId embedded in a lookup; since refresh tokens are
-  // opaque (not JWT), we must scan sessions and bcrypt.compare each hash.
-  // To keep this efficient, the token is prefixed with the sessionId (see note below).
-  //
-  // IMPLEMENTATION NOTE:
-  // For even better performance at scale, consider a two-part token:
-  //   "<sessionId>.<randomSecret>" — use sessionId to find the row, then
-  //   compare only the secret part. This avoids scanning all sessions.
-  // We implement that pattern here.
-
+  console.log('🔄 Processing refresh token...');
+  
   const [sessionId, secret] = splitToken(oldToken);
+  console.log('📝 Session ID:', sessionId);
+  console.log('🔑 Secret length:', secret?.length || 0);
+
   if (!sessionId || !secret) {
+    console.log('❌ Invalid refresh token format');
     throw new AppError('Invalid refresh token format', 401, ErrorCode.TOKEN_INVALID);
   }
 
   const session = await Session.findById(sessionId).select('+refreshTokenHash');
   if (!session || session.expiresAt < new Date()) {
-    // Possible token reuse — if session was already deleted, this is a replay attack
     logger.warn({ sessionId }, 'Refresh token reuse attempt or session not found');
     throw new AppError('Session not found or expired', 401, ErrorCode.SESSION_NOT_FOUND);
   }
 
   const isValid = await bcrypt.compare(secret, session.refreshTokenHash);
   if (!isValid) {
-    // Hash mismatch = stolen token being replayed after rotation
     logger.warn(
       { sessionId, userId: session.userId },
       'Refresh token hash mismatch — possible replay attack',
     );
-    // Invalidate the entire session as a security measure
     await Session.deleteOne({ _id: session._id });
     throw new AppError('Invalid refresh token', 401, ErrorCode.TOKEN_INVALID);
   }
@@ -220,7 +220,6 @@ export const refreshTokenService = async (oldToken: string) => {
     throw new AppError('User not found', 401, ErrorCode.USER_NOT_FOUND);
   }
 
-  // Rotate: generate new refresh token, update session in place
   const newRefreshToken = generateSecureToken();
   const newRefreshTokenHash = await bcrypt.hash(newRefreshToken, BCRYPT_ROUNDS);
 
@@ -263,7 +262,6 @@ export const logoutAllService = async (userId: string) => {
 // ─── Forgot Password ──────────────────────────────────────────────────────────
 
 export const forgotPassword = async (email: string) => {
-  // ✅ Prevent email enumeration
   const SAFE_RESPONSE = {
     message: 'If that email is registered, a reset link has been sent.',
   };
@@ -271,29 +269,21 @@ export const forgotPassword = async (email: string) => {
   const user = await User.findOne({ email });
   if (!user) return SAFE_RESPONSE;
 
-  // 🔥 Generate secure random token
   const rawToken = crypto.randomBytes(32).toString('hex');
-
-  // 🔐 Hash token before saving (never store raw token)
   const hashedToken = await bcrypt.hash(rawToken, BCRYPT_ROUNDS);
-
   const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY_MS);
 
-  // 🧹 Remove old reset tokens
   await OTP.deleteMany({ email, type: 'RESET_PASSWORD' });
 
-  // 💾 Store new reset token (reuse OTP collection)
   await OTP.create({
     email,
-    otp: hashedToken, // using same field
+    otp: hashedToken,
     type: 'RESET_PASSWORD',
     expiresAt,
   });
 
-  // 🔗 Build reset URL
   const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${rawToken}&email=${email}`;
 
-  // 📧 Send email
   await addEmailJob({
     to: email,
     subject: 'Reset your password',
@@ -301,7 +291,6 @@ export const forgotPassword = async (email: string) => {
   });
 
   logger.info({ email }, 'Password reset link sent');
-
   return SAFE_RESPONSE;
 };
 
@@ -311,65 +300,54 @@ export const resetPassword = async (payload: { resetUrl: string; newPassword: st
   const { resetUrl, newPassword } = payload;
 
   try {
-    // 🔍 Parse URL
     const url = new URL(resetUrl);
-
     const token = url.searchParams.get('token');
     const email = url.searchParams.get('email');
 
     if (!token || !email) {
-      throw new AppError('Invalid reset link', 400);
+      throw new AppError('Invalid reset link', 400, ErrorCode.BAD_REQUEST);
     }
 
-    // 🔎 Find record
     const record = await OTP.findOne({
       email,
       type: 'RESET_PASSWORD',
     }).select('+otp');
 
     if (!record) {
-      throw new AppError('Invalid or expired reset link', 400);
+      throw new AppError('Invalid or expired reset link', 400, ErrorCode.TOKEN_INVALID);
     }
 
-    // ⏳ Check expiry
     if (record.expiresAt < new Date()) {
       await OTP.deleteOne({ _id: record._id });
-      throw new AppError('Reset link expired', 400);
+      throw new AppError('Reset link expired', 400, ErrorCode.TOKEN_EXPIRED);
     }
 
-    // 🔐 Validate token
     const isValid = await bcrypt.compare(token, record.otp);
-
     if (!isValid) {
-      throw new AppError('Invalid reset token', 400);
+      throw new AppError('Invalid reset token', 400, ErrorCode.TOKEN_INVALID);
     }
 
-    // 🔒 Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-
     const user = await User.findOneAndUpdate({ email }, { password: hashedPassword });
 
     if (!user) {
-      throw new AppError('User not found', 404);
+      throw new AppError('User not found', 404, ErrorCode.USER_NOT_FOUND);
     }
 
-    // 🧹 Cleanup + logout all sessions
     await Promise.all([
       OTP.deleteOne({ _id: record._id }),
       Session.deleteMany({ userId: user._id }),
     ]);
 
     logger.info({ email }, 'Password reset successful via link');
-
     return {
       message: 'Password reset successful. Please log in again.',
     };
   } catch (err: any) {
     if (err instanceof AppError) {
-      throw err; // 🔥 keep original error
+      throw err;
     }
-
-    throw new AppError('Something went wrong during password reset', 500);
+    throw new AppError('Something went wrong during password reset', 500, ErrorCode.INTERNAL);
   }
 };
 
@@ -395,15 +373,13 @@ export const changePassword = async (payload: {
 
   const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
   await User.updateOne({ _id: userId }, { password: hashedPassword });
-
-  // Invalidate all OTHER sessions, keep the current one active
   await Session.deleteMany({ userId, _id: { $ne: sessionId } });
 
   logger.info({ userId }, 'Password changed — other sessions invalidated');
   return { message: 'Password changed successfully.' };
 };
 
-// ─── Get active sessions (for user dashboard) ────────────────────────────────
+// ─── Get active sessions ──────────────────────────────────────────────────────
 
 export const getActiveSessions = async (userId: string) => {
   const sessions = await Session.find({ userId, expiresAt: { $gt: new Date() } })
@@ -421,13 +397,12 @@ export const getActiveSessions = async (userId: string) => {
 
 // ─── Resend OTP ───────────────────────────────────────────────────────────────
 
-export const resendOtp = async (email: string, type: 'REGISTER' | 'FORGOT_PASSWORD') => {
+export const resendOtp = async (email: string, type: OTPType) => {
   await assertOtpCooldown(email, type);
 
   if (type === 'REGISTER') {
     const user = await User.findOne({ email });
     if (!user || user.isVerified) {
-      // Prevent enumeration — silent no-op for unknown/already-verified
       return { message: 'If applicable, a new OTP has been sent.' };
     }
   }
@@ -452,7 +427,7 @@ export const resendOtp = async (email: string, type: 'REGISTER' | 'FORGOT_PASSWO
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
-async function assertOtpCooldown(email: string, type: 'REGISTER' | 'FORGOT_PASSWORD') {
+async function assertOtpCooldown(email: string, type: OTPType) {
   const recent = await OTP.findOne({
     email,
     type,
@@ -486,23 +461,8 @@ async function assertOtpValid(
   }
 
   const isMatch = await bcrypt.compare(providedOtp, otpDoc.otp);
-
   if (!isMatch) {
     await OTP.updateOne({ _id: otpDoc._id }, { $inc: { attempts: 1 } });
     throw new AppError('Invalid OTP', 400, ErrorCode.OTP_INVALID);
   }
-}
-
-// ─── Token helpers (sessionId prefix for O(1) lookup) ────────────────────────
-
-const TOKEN_SEPARATOR = '.';
-
-export function buildToken(sessionId: string, secret: string): string {
-  return `${sessionId}${TOKEN_SEPARATOR}${secret}`;
-}
-
-export function splitToken(token: string): [string, string] {
-  const idx = token.indexOf(TOKEN_SEPARATOR);
-  if (idx === -1) return ['', ''];
-  return [token.slice(0, idx), token.slice(idx + 1)];
 }

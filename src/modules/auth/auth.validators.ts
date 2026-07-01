@@ -50,7 +50,7 @@ export const resetPasswordSchema = z.object({
 
 export const resendOtpSchema = z.object({
   email: emailSchema,
-  type: z.enum(['REGISTER', 'FORGOT_PASSWORD']),
+  type: z.enum(['REGISTER', 'RESET_PASSWORD']),
 });
 
 export const changePasswordSchema = z
